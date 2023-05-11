@@ -1,54 +1,7 @@
---inspecting data
-select *
-from kpmg.Transactions
+--DATASET
 
--- checking unique values
-select distinct transaction_id from kpmg.Transactions
-select distinct product_id from kpmg.Transactions
-select distinct customer_id from kpmg.Transactions
-select distinct transaction_date from kpmg.Transactions
-select distinct online_order from kpmg.Transactions
-select distinct order_status from kpmg.Transactions --nice on to plot
-select distinct brand from kpmg.Transactions --nice one to plot
-select distinct product_line from kpmg.Transactions --nice one to plot
-select distinct product_class from kpmg.Transactions --nice to plot
-select distinct product_size from kpmg.Transactions --nice to plot
-
---ANALYSIS
-
--- Sum of sales by the product lines
-SELECT product_line, SUM(list_price) Revenue
-from kpmg.Transactions
-GROUP by product_line
-ORDER BY 2 desc
---The standard product line  15340723.81 in revenue out-performed 
---all others by a huge margin, Mountain product line fall short with revenue of 262541.56
-
---REVENUE BY PRODUCT CLASS
-SELECT product_class, SUM(list_price) Revenue
-from kpmg.Transactions
-GROUP by product_class
-ORDER BY 2 desc
-
--- Medium came in as the top performing product class with 15621698.760000339 in Revenue
-
---REVENUE BY PRODUCT SIZE 
-SELECT product_size, SUM(list_price) Revenue
-from kpmg.Transactions
-GROUP by product_size
-ORDER BY 2 desc
-
---REVENUE BY BRAND
-SELECT brand, SUM(list_price) Revenue
-from kpmg.Transactions
-GROUP by brand
-ORDER BY 2 desc
-
---REVENUE BY PRODUCT DETAILS
-SELECT brand, product_class,  COUNT(transaction_id) Quantity_Sold,SUM(list_price) Revenue
-from kpmg.Transactions
-GROUP by  brand, product_class
-ORDER BY 4 desc
+SELECT *
+FROM kpmg.Transactions
 
 --WHO IS OUR BEST CUSTOMER?
 -- USING RFM ANALYSIS FOR CUSTOMER SEGMENTATION
@@ -70,9 +23,9 @@ WITH RFM AS
 rfm_calc AS
 (
     SELECT r.*,
-        NTILE(5) OVER (ORDER BY Recency) rfm_recency,
-        NTILE(5) OVER (ORDER BY Frequency) rfm_frequency,
-        NTILE(5) OVER (ORDER BY MonetaryValue) rfm_monetary
+        NTILE(4) OVER (ORDER BY Recency) rfm_recency,
+        NTILE(4) OVER (ORDER BY Frequency) rfm_frequency,
+        NTILE(4) OVER (ORDER BY MonetaryValue) rfm_monetary
 
     FROM RFM r
 )
@@ -82,8 +35,23 @@ SELECT
 INTO #rfm
 from rfm_calc c
 
-SELECT * FROM #rfm
---select customer_id, MAX(transaction_date) Last_Purchase, COUNT(transaction_id) Total_Transactions, SUM(list_price) Total_Purchased
---from kpmg.Transactions
---group by customer_id
+SELECT *
+from #rfm
+
+SELECT customer_id, rfm_recency,rfm_frequency,rfm_monetary,rfm_score,
+    case 
+        when rfm_score in (444,443,434,433) then 'churned best customer' --they have transacted a lot and frequent but it has been a long time since last transaction
+        when rfm_score in (421,422,423,424,434,432,433,431) then 'lost customer'
+        when rfm_score in (342,332,341,331) then 'declining customer'
+        when rfm_score in (344,343,334,333) then 'slipping best customer'--they are best customer that have not purchased in a while
+        when rfm_score in (142,141,143,131,132,133,242,241,243,231,232,233) then 'active loyal customer' -- they have purchased recently, frequently, but have low monetary value
+        when rfm_score in (112,111,113,114,211,213,214,212) then 'new customer' 
+        when rfm_score in (144) then 'best customer'-- they have purchase recently and frequently, with high monetary value
+        when rfm_score in (411,412,413,414,313,312,314,311) then 'one time customer'
+        when rfm_score in (222,221,223,224) then 'Potential customer'
+        else 'customer'
+    end rfm_segment
+
+FROM #rfm
+
 
